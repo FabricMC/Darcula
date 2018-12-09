@@ -1,0 +1,73 @@
+plugins {
+	id 'java'
+	id 'eclipse'
+	id 'idea'
+	id 'maven-publish'
+}
+
+sourceCompatibility = 1.8
+targetCompatibility = 1.8
+
+archivesBaseName = "darcula"
+version = "1.0.0"
+
+def ENV = System.getenv()
+version = version + "." + (ENV.BUILD_NUMBER ?: "local")
+
+sourceSets {
+    main {
+        java.srcDirs = ['src']
+    }
+}
+
+//Suprresses the warnings about using interal apis
+compileJava { 
+	options.compilerArgs << '-XDignore.symbol.file' 
+	options.fork = true 
+	options.forkOptions.executable = 'javac' 
+}
+
+repositories {
+    mavenCentral()
+}
+
+configurations {
+    shade
+    compile.extendsFrom shade
+}
+
+dependencies {
+	compile group: 'org.jetbrains', name: 'annotations', version: '16.0.3'
+	shade files('lib/iconloader.jar')
+}
+
+jar {
+    configurations.shade.each { dep ->
+        from(project.zipTree(dep)){
+            exclude 'META-INF', 'META-INF/**'
+        }
+    }
+}
+
+publishing {
+	publications {
+		plugin(MavenPublication) { publication ->
+			groupId project.group
+			artifactId project.archivesBaseName
+			version project.version
+
+			from components["java"]
+		}
+	}
+	repositories {
+		maven {
+			url "http://mavenupload.modmuss50.me/"
+			if (project.hasProperty('mavenPass')) {
+				credentials {
+					username 'buildslave'
+					password project.getProperty('mavenPass')
+				}
+			}
+		}
+	}
+}
